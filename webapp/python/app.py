@@ -73,6 +73,8 @@ def db_get_user(cur, user_id):
 def db_add_message(cur, channel_id, user_id, content):
     cur.execute("INSERT INTO message (channel_id, user_id, content, created_at) VALUES (%s, %s, %s, NOW())",
                 (channel_id, user_id, content))
+    cur.execute("UPDATE channel SET message_count = message_count + 1 where id = {}".format(
+        channel_id)
 
 
 def login_required(func):
@@ -242,7 +244,7 @@ def fetch_unread():
             cur.execute('SELECT COUNT(*) as cnt FROM message WHERE channel_id = %s AND %s < id',
                         (channel_id, row['message_id']))
         else:
-            cur.execute('SELECT COUNT(*) as cnt FROM message WHERE channel_id = %s', (channel_id,))
+            cur.execute('SELECT message_count FROM channel WHERE id = %s', (channel_id,))
         r = {}
         r['channel_id'] = channel_id
         r['unread'] = int(cur.fetchone()['cnt'])
@@ -262,7 +264,7 @@ def get_history(channel_id):
 
     N = 20
     cur = dbh().cursor()
-    cur.execute("SELECT COUNT(*) as cnt FROM message WHERE channel_id = %s", (channel_id,))
+    cur.execute('SELECT message_count FROM channel WHERE id = %s', (channel_id,))
     cnt = int(cur.fetchone()['cnt'])
     max_page = math.ceil(cnt / N)
     if not max_page:
@@ -322,7 +324,7 @@ def post_add_channel():
     if not name or not description:
         flask.abort(400)
     cur = dbh().cursor()
-    cur.execute("INSERT INTO channel (name, description, updated_at, created_at) VALUES (%s, %s, NOW(), NOW())",
+    cur.execute("INSERT INTO channel (name, description, updated_at, created_at, message_count) VALUES (%s, %s, NOW(), NOW(), 0)",
                 (name, description))
     channel_id = cur.lastrowid
     return flask.redirect('/channel/' + str(channel_id), 303)
